@@ -1,0 +1,6 @@
+*.csv
+**/.vscode
+**/.vs
+**/bin
+**/obj
+LoadingData/CaliforniaHousing/data.png
