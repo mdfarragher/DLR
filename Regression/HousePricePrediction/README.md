@@ -295,15 +295,23 @@ Both curves are defined as the loss values per training epoch. And note the **Sq
 
 Finally we use **File.WriteAllText** to write the plot to disk as a HTML file.
 
-We're now ready to run the app, so this is a good moment to save your work ;) 
+We're now ready to build the app, so this is a good moment to save your work ;) 
 
-Type the following:
+Go to the CNTKUtil folder and type the following:
 
 ```bash
 $ dotnet build -o bin/Debug/netcoreapp3.0 -p:Platform=x64
 ```
 
-This will build the app. Note how we're specifying the x64 platform, because the CNTK library requires a 64-bit build. 
+This will build the CNKTUtil project. Note how we're specifying the x64 platform because the CNTK library requires a 64-bit build. 
+
+Now go to the HousePricePrediction folder and type:
+
+```bash
+$ dotnet build -o bin/Debug/netcoreapp3.0 -p:Platform=x64
+```
+
+This will build your app. Note how we're again specifying the x64 platform.
 
 Now run the app:
 
@@ -311,7 +319,9 @@ Now run the app:
 $ dotnet run
 ```
 
-The app will write the plot to a new file called chart.html. Open the file and check out the training and testing curves.
+The app will create the neural network, load the dataset, train the network on the data, and create a plot of the training and testing loss for each epoch. 
+
+The plot is written to disk in a new file called chart.html. Open the file now and take a look at the training and testing curves.
 
 What are your final RMSE values on training and testing? And what do the curves look like? Is the neural network overfitting?
 
@@ -319,4 +329,4 @@ Try to improve the neural network by adding more nodes, extra layers, or changin
 
 Did the changes help? What is the best RMSE you can achieve?
 
-Post your results in our support team.
+Post your results in our support group.
