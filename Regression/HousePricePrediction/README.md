@@ -4,7 +4,7 @@ In this assignment you're going to build an app that trains a deep neural networ
 
 So the first thing you'll need is the data file with house prices. The 1990 California cencus has exactly what we need. 
 
-Download the [California 1990 housing census](https://github.com/mdfarragher/DSC/blob/master/LoadingData/CaliforniaHousing/california_housing.csv) and save it as **california_housing.csv**. 
+Download the [California 1990 housing census](https://github.com/mdfarragher/DLR/blob/master/Regression/HousePricePrediction/california_housing.csv) and save it as **california_housing.csv**. 
 
 This is a CSV file with 17,000 records that looks like this:
 
