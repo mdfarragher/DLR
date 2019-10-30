@@ -55,7 +55,7 @@ If you don't have an NVidia GPU or suitable drivers, you can also opt to train a
 
 CNTK is a low-level tensor library for building, training, and running deep neural networks. The code to build deep neural network can get a bit verbose, so I've developed a wrapper called **CNTKUtil** that will help you write code faster. 
 
-Please [download the CNTKUtil files](#) in a new **CNTKUtil** folder at the same level as your project folder.
+Please [download the CNTKUtil files](https://github.com/mdfarragher/DLR/tree/master/CNTKUtil) in a new **CNTKUtil** folder at the same level as your project folder.
 
 Then make sure you're in the console project folder and crearte a project reference like this:
 
