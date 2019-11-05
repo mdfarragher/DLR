@@ -45,7 +45,6 @@ namespace CNTKUtil
             {
                 learningRate *= 0.75;
                 learner.ResetLearningRate(new CNTK.TrainingParameterScheduleDouble(learningRate));
-                Console.WriteLine($"Learning rate set to {learningRate}");
                 slotSinceLastUpdate = 0;
                 should_stop = (learningRate < 1e-6);
             }
