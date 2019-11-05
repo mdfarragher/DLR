@@ -205,9 +205,9 @@ The second **Var** method tells CNTK that we want our neural network to output a
 
 Our next step is to design the neural network. 
 
-We will use a deep neural network with a 512-node input layer and a 10-node output layer. We'll use the **ReLU** activation function for the input layers and **Softmax** activation for the output layer. 
+We will use a deep neural network with a 512-node input layer and a 10-node output layer. We'll use the **ReLU** activation function for the input layer and **Softmax** activation for the output layer. 
 
-Remember: the sofmax function creates a mutually exclusive list of outout classes where only a single class can be the correct answer. If we had used sigmoid, the neural network might predict more than one digit value simultaneously. We don't want that here.  
+Remember: the sofmax function creates a mutually exclusive list of output classes where only a single class can be the correct answer. If we had used sigmoid, the neural network might predict more than one digit value simultaneously. We don't want that here.  
 
 Here's how to build the neural network:
 
