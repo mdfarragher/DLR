@@ -2,7 +2,7 @@
 
 In this assignment, you're going to build an app that trains a deep neural network on a dataset of house prices in the state of California. 
 
-So the first thing you'll need is the data file with house prices. The 1990 California cencus has exactly what we need. 
+So the first thing you'll need is the data file with house prices. The 1990 California census has exactly what we need. 
 
 Download the [California 1990 housing census](https://github.com/mdfarragher/DLR/blob/master/Regression/HousePricePrediction/california_housing.csv) and save it as **california_housing.csv**. 
 
@@ -128,6 +128,8 @@ class Program
         Console.WriteLine($"Using device: {NetUtil.CurrentDevice.AsString()}");
 
         // the rest of the code goes here...
+    }
+}
 ```
 
 When working with the ML.NET library we always need to set up a machine learning context represented by the **MLContext** class.
@@ -158,9 +160,7 @@ This code calls the **LoadFromTextFile** method to load the CSV data in memory. 
 
 We then use **TrainTestSplit** to split the data in a training partition containing 80% of the data and a testing partition containing 20% of the data.
 
-Finally we call **CreateEnumerable** to convert the two partitions to an enumeration of **HouseBlockData** instances.
-
-So now we have the training data in **training** and the testing data in **testing**. Both are enumerations of **HouseBlockData** instances.
+Finally we call **CreateEnumerable** to convert the two partitions to an enumeration of **HouseBlockData** instances. So now we have the training data in **training** and the testing data in **testing**. Both are enumerations of **HouseBlockData** instances.
 
 But CNTK can't train on an enumeration of class instances. It requires a **float[][]** for features and **float[]** for labels.
 
@@ -215,17 +215,15 @@ Console.WriteLine(network.ToSummary());
 // the rest of the code goes here...
 ```
 
-Each **Dense** call adds a new dense feedforward layer to the network. We're stacking two layers with 8 nodes each, both using ReLU activation, and then add a final layer with only a single node.
+Each **Dense** call adds a new dense feedforward layer to the network. We're stacking two layers with 8 nodes each, both using **ReLU** activation, and then add a final layer with only a single node.
 
 Then we use the **ToSummary** method to output a description of the architecture of the neural network to the console.
 
 Now we need to decide which loss function to use to train the neural network, and how we are going to track the prediction error of the network during each training epoch. 
 
-There's nothing stopping you from using the same function for both loss and error, but often it's nice to use two different metrics.
+There's nothing stopping us from using the same function for both loss and error, but often it's nice to use separate metrics for training and error reporting. 
 
-For this assignment we'll use **MSE** as the loss function because it's pretty much the standard metric for measuring regression loss. 
-
-But we'll track the error with the **MAE** metric. The nice thing about MAE is that it expresses the average prediction error in dollars. So we can now track the prediction accuracy in dollars during the training.
+For this assignment we'll use **MSE** as the loss function because it's the standard metric for measuring regression loss. But we'll track the error with the **MAE** metric. The nice thing about MAE is that it expresses the average prediction error in dollars. 
 
 ```csharp
 // set up the loss function and the classification error function
@@ -237,7 +235,7 @@ var errorFunc = NetUtil.MeanAbsoluteError(network.Output, labels);
 
 Next we need to decide which algorithm to use to train the neural network. There are many possible algorithms derived from Gradient Descent that we can use here.
 
-For this assignment we're going to use the Adam Learner. You can learn more about the Adam algorithm here: [https://machinelearningmastery.com/adam...](https://machinelearningmastery.com/adam-optimization-algorithm-for-deep-learning/)
+For this assignment we're going to use the **AdamLearner**. You can learn more about the Adam algorithm here: [https://machinelearningmastery.com/adam...](https://machinelearningmastery.com/adam-optimization-algorithm-for-deep-learning/)
 
 ```csharp
 // set up a learner
@@ -289,7 +287,7 @@ var finalError = testingError[maxEpochs-1];
 Console.WriteLine();
 Console.WriteLine($"Final test MAE: {finalError:0.00}");
 
-// plotting code goes here
+// plotting code goes here...
 ```
 
 We're training the network for 50 epochs using a batch size of 16. During training we'll track the loss and errors in the **loss**, **trainingError** and **testingError** arrays.
@@ -334,9 +332,9 @@ The **Index().Shuffle().Batch()** sequence randomizes the data and splits it up 
 
 Inside the batch function we call **GetBatch** twice to get a feature batch and a corresponding label batch. Then we call **TrainBatch** to train the neural network on these two batches of training data.
 
-The **TrainBatch** method returns the loss and error, but only for training on the 16-record batch. So we simply add up all these values and divide them by the number of batches in the dataset. That gives us the average loss and error for the predictions on the training partition at the end of the current epoch, and we report this to the console.
+The **TrainBatch** method returns the loss and error, but only for training on the 16-record batch. So we simply add up all these values and divide them by the number of batches in the dataset. That gives us the average loss and error for the predictions on the training partition during the current epoch, and we report this to the console.
 
-So now we know the training loss and error for one single training epoch. The next step is to test the network by creating predictions for the data in the testing partition and calculate the testing error.
+So now we know the training loss and error for one single training epoch. The next step is to test the network by making predictions about the data in the testing partition and calculate the testing error.
 
 Put this code inside the epoch loop and right below the training code:
 
@@ -367,11 +365,9 @@ We don't need to shuffle the data for testing, so now we can call **Batch** dire
 
 We call **TestBatch** to test the neural network on the 16-record test batch. The method returns the error for the batch, and we again add up the errors for each batch and divide by the number of batches. 
 
-That gives us the average error in the neural network predictions on the test partition at the end of this epoch. 
+That gives us the average error in the neural network predictions on the test partition for this epoch. 
 
-After training completes, the training and testing errors for each epoch will be available in the **trainingError** and **testingError** arrays.
-
-Let's use XPlot to create a nice plot of the two error curves so we can check for overfitting:
+After training completes, the training and testing errors for each epoch will be available in the **trainingError** and **testingError** arrays. Let's use XPlot to create a nice plot of the two error curves so we can check for overfitting:
 
 ```csharp
 // plot the error graph
