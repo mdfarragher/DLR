@@ -29,7 +29,7 @@ It’s a CSV file with 14 columns of information:
 
 The first 13 columns are patient diagnostic information, and the last column is the diagnosis: 0 means a healthy patient, and values 1-4 mean an elevated risk of heart disease.
 
-You are going to build a binary classification network that reads in all 13 columns of patient information, and then makes a prediction for the heart disease risk.
+You are going to build a binary classification network that reads in patient information and then makes a prediction for the heart disease risk.
 
 Let’s get started. You need to build a new application from scratch by opening a terminal and creating a new NET Core console project:
 
@@ -158,7 +158,7 @@ The code calls the **LoadFromTextFile** method to load the CSV data in memory. N
 
 We then use **TrainTestSplit** to split the data in a training partition containing 60% of the data and a testing partition containing 40% of the data.
 
-Note that we're deviating from the usual 80-20 split here. This is because the data file is extremely small, 20% of the data is simply not enough to test the neural network on. 
+Note that we're deviating from the usual 80-20 split here. This is because the data file is extremely small, and so 20% of the data is simply not enough to test the neural network on. 
 
 Finally we call **CreateEnumerable** to convert the two partitions to an enumeration of **HeartData** instances. So now we have the training data in **training** and the testing data in **testing**. Both are enumerations of **HeartData** instances.
 
@@ -196,7 +196,7 @@ Our next step is to design the neural network.
 
 We will use a deep neural network with a 16-node input layer, a 128-node hidden layer, and a single-node output layer. We'll use the **ReLU** activation function for the input and hidden layers, and **Sigmoid** activation for the output layer. 
 
-Remember: the sigmoid function forces the output to a range of 0..1 which means we can treat it as a binary classification probability. So we can turn any regression network into a binary classification network by simply adding the Sigmoid activation function to the output layer.
+Remember: the sigmoid function forces the output to a range of 0..1 which means we can treat it as a binary classification probability. So we can turn any regression network into a binary classification network by simply adding the sigmoid activation function to the output layer.
 
 Here's how to build this neural network:
 
@@ -255,9 +255,9 @@ var trainer = network.GetTrainer(learner, lossFunc, errorFunc);
 var evaluator = network.GetEvaluator(errorFunc);
 
 // train the model
-Console.WriteLine("Epoch\tTrain\t\tTrain\tTest");
-Console.WriteLine("\tLoss\t\tError\tError");
-Console.WriteLine("--------------------------------------");
+Console.WriteLine("Epoch\tTrain\tTrain\tTest");
+Console.WriteLine("\tLoss\tError\tError");
+Console.WriteLine("-----------------------------");
 
 // the rest of the code goes here...
 ```
@@ -297,7 +297,7 @@ Once training is done, we show the final testing error on the console. This is t
 
 Note that the error and the accuracy are related: accuracy = 1 - error. So we also report the final accuracy of the neural network. 
 
-Here's the code to train the neural network:
+Here's the code to train the neural network. Put this inside the for loop:
 
 ```csharp
 // train one epoch on batches
