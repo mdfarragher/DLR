@@ -14,7 +14,6 @@ namespace Mnist
     /// </summary>
     class Digit
     {
-        [ColumnName("PixelValues")]
         [VectorType(784)]
         public float[] PixelValues = default;
 
