@@ -188,7 +188,7 @@ var labels = NetUtil.Var(new int[] { 1 }, DataType.Float);
 // the rest of the code goes here...
 ```
 
-Note the first **Var** method which tells CNTK that our neural network will use a 1-dimensional tensor of 7 float values as input. This shape matches the 8 values returned by the **HeartData.GetFeatures** method. 
+Note the first **Var** method which tells CNTK that our neural network will use a 1-dimensional tensor of 7 float values as input. This shape matches the 7 values returned by the **HeartData.GetFeatures** method. 
 
 And the second **Var** method tells CNTK that we want our neural network to output a single float value. This shape matches the single value returned by the **HeartData.GetLabel** method.
 
