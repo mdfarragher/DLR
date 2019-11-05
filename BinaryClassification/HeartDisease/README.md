@@ -29,33 +29,55 @@ It’s a CSV file with 14 columns of information:
 
 The first 13 columns are patient diagnostic information, and the last column is the diagnosis: 0 means a healthy patient, and values 1-4 mean an elevated risk of heart disease.
 
-You are going to build a binary classification machine learning model that reads in all 13 columns of patient information, and then makes a prediction for the heart disease risk.
+You are going to build a binary classification network that reads in all 13 columns of patient information, and then makes a prediction for the heart disease risk.
 
 Let’s get started. You need to build a new application from scratch by opening a terminal and creating a new NET Core console project:
 
 ```bash
-$ dotnet new console -o Heart
-$ cd Heart
+$ dotnet new console -o HeartDisease
+$ cd HeartDisease
 ```
 
-Now install the following ML.NET packages:
+Also make sure to copy the dataset file **processed.cleveland.data.csv** into this folder because the code you're going to type next will expect it here.  
+
+Now install the following packages
 
 ```bash
 $ dotnet add package Microsoft.ML
-$ dotnet add package Microsoft.ML.FastTree
+$ dotnet add package CNTK.GPU
+$ dotnet add package XPlot.Plotly
+$ dotnet add package Fsharp.Core
 ```
 
-Now you are ready to add some classes. You’ll need one to hold patient info, and one to hold your model predictions.
+**Microsoft.ML** is the Microsoft machine learning package. We will use to load and process the data from the dataset. The **CNTK.GPU** library is Microsoft's Cognitive Toolkit that can train and run deep neural networks. And **Xplot.Plotly** is an awesome plotting library based on Plotly. The library is designed for F# so we also need to pull in the **Fsharp.Core** library. 
 
-Modify the Program.cs file like this:
+The **CNTK.GPU** package will train and run deep neural networks using your GPU. You'll need an NVidia GPU and Cuda graphics drivers for this to work. 
+
+If you don't have an NVidia GPU or suitable drivers, the library will fall back and use the CPU instead. This will work but training neural networks will take significantly longer.
+
+CNTK is a low-level tensor library for building, training, and running deep neural networks. The code to build deep neural network can get a bit verbose, so I've developed a little wrapper called **CNTKUtil** that will help you write code faster. 
+
+Please [download the CNTKUtil files](https://github.com/mdfarragher/DLR/tree/master/CNTKUtil) in a new **CNTKUtil** folder at the same level as your project folder.
+
+Then make sure you're in the console project folder and crearte a project reference like this:
+
+```bash
+$ dotnet add reference ..\CNTKUtil\CNTKUtil.csproj
+```
+
+Now you are ready to start writing code. Edit the Program.cs file with Visual Studio Code and add the following code:
 
 ```csharp
 using System;
 using System.IO;
+using System.Linq;
 using Microsoft.ML;
 using Microsoft.ML.Data;
+using CNTK;
+using CNTKUtil;
+using XPlot.Plotly;
 
-namespace Heart
+namespace HeartDisease
 {
     /// <summary>
     /// The HeartData record holds one single heart data record.
@@ -75,57 +97,26 @@ namespace Heart
         [LoadColumn(10)] public float Slope { get; set; }
         [LoadColumn(11)] public float Ca { get; set; }
         [LoadColumn(12)] public float Thal { get; set; }
-        [LoadColumn(13)] public int RawLabel { get; set; }
+        [LoadColumn(13)] public int Label { get; set; }
+
+        public float[] GetFeatures() => new float[] { Age, Chol, Fbs, Thalac, Exang, OldPeak, Slope };
+
+        public float GetLabel() => (Label == 0 ? 0f : 1f);
     }
 
-    /// <summary>
-    /// The HeartPrediction class contains a single heart data prediction.
-    /// </summary>
-    public class HeartPrediction
-    {
-        [ColumnName("PredictedLabel")] public bool Prediction;
-        public float Probability;
-        public float Score;
-    }
-
-    // the rest of the code goes here....
+    // the rest of the code goes here...
 }
 ```
-The **HeartData** class holds one single patient record. Note how each field is tagged with a **LoadColumn** attribute that tells the CSV data loading code which column to import data from.
 
-There's also a **HeartPrediction** class which will hold a single heart disease prediction. There's a boolean **Prediction**, a **Probability** value, and the **Score** the model will assign to the prediction.
+The **HeartData** class holds all the data for one single patient. Note how each field is tagged with a **LoadColumn** attribute that will tell the CSV data loading code from which column to import the data.
 
-Now look at the final column in the data file. Our label is an integer value between 0-4, with 0 meaning 'no risk' and 1-4 meaning 'elevated risk'. 
+We also have a **GetFeatures** method that returns a subset of the data columns: the age, cholesterol level, fasting blood sugar, maximum heart rate, exercise induced angina, ST depression, and slope value of the patient.
 
-But you're building a Binary Classifier which means your model needs to be trained on boolean labels.
+And there's a **GetLabel** method that returns 1 if the patient is a heart disease risk and 0 if the patient is not.
 
-So you'll have to somehow convert the 'raw' numeric label (stored in the **RawLabel** field) to a boolean value. 
+The features are the patient attributes that we will use to train the neural network on, and the label is the output variable that we're trying to predict. So here we're training on 7 patient attributes in the dataset to predict the heart disease risk. 
 
-To set that up, you'll need two helper classes:
-
-```csharp
-/// <summary>
-/// The FromLabel class is a helper class for a column transformation.
-/// </summary>
-public class FromLabel
-{
-    public int RawLabel;
-}
-
-/// <summary>
-/// The ToLabel class is a helper class for a column transformation.
-/// </summary>
-public class ToLabel
-{
-    public bool Label;
-}
-
-// the rest of the code goes here....
-```
-
-Note the **FromLabel** class that contains the 'raw' unprocessed numeric label value, and the **ToLabel** class that contains the final boolean label value. 
-
-Now you're going to load the training data in memory:
+Now it's time to start writing the main program method:
 
 ```csharp
 /// <summary>
@@ -145,180 +136,315 @@ public class Program
         // set up a machine learning context
         var context = new MLContext();
 
-        // load data
+        // load training and test data
         Console.WriteLine("Loading data...");
         var data = context.Data.LoadFromTextFile<HeartData>(dataPath, hasHeader: false, separatorChar: ',');
 
         // split the data into a training and test partition
-        var partitions = context.Data.TrainTestSplit(data, testFraction: 0.2);
+        var partitions = context.Data.TrainTestSplit(data, testFraction: 0.4);
 
-        // the rest of the code goes here....
+        // load training and testing data
+        var training = context.Data.CreateEnumerable<HeartData>(partitions.TrainSet, reuseRowObject: false);
+        var testing = context.Data.CreateEnumerable<HeartData>(partitions.TestSet, reuseRowObject: false);
+
+        // the rest of the code goes here...
     }
 }
 ```
-This code uses the method **LoadFromTextFile** to load the CSV data directly into memory. The class field annotations tell the method how to store the loaded data in the **HeartData** class.
 
-The **TrainTestSplit** method then splits the data into a training partition with 80% of the data and a test partition with 20% of the data.
+When working with the ML.NET library we always need to set up a machine learning context represented by the **MLContext** class.
 
-Now you’re ready to start building the machine learning model:
+The code calls the **LoadFromTextFile** method to load the CSV data in memory. Note the **HeartData** type argument that tells the method which class to use to load the data.
+
+We then use **TrainTestSplit** to split the data in a training partition containing 60% of the data and a testing partition containing 40% of the data.
+
+Note that we're deviating from the usual 80-20 split here. This is because the data file is extremely small, 20% of the data is simply not enough to test the neural network on. 
+
+Finally we call **CreateEnumerable** to convert the two partitions to an enumeration of **HeartData** instances. So now we have the training data in **training** and the testing data in **testing**. Both are enumerations of **HeartData** instances.
+
+But CNTK can't train on an enumeration of class instances. It requires a **float[][]** for features and **float[]** for labels.
+
+So we need to set up four float arrays:
 
 ```csharp
-// set up a training pipeline
-// step 1: convert the label value to a boolean
-var pipeline = context.Transforms.CustomMapping<FromLabel, ToLabel>(
-        (input, output) => { output.Label = input.RawLabel > 0; },
-        "LabelMapping"
-    )
+// set up data arrays
+var training_data = training.Select(v => v.GetFeatures()).ToArray();
+var training_labels = training.Select(v => v.GetLabel()).ToArray();
+var testing_data = testing.Select(v => v.GetFeatures()).ToArray();
+var testing_labels = testing.Select(v => v.GetLabel()).ToArray();
 
-    // step 2: concatenate all feature columns
-    .Append(context.Transforms.Concatenate(
-    "Features", 
-    "Age", 
-    "Sex", 
-    "Cp", 
-    "TrestBps",
-    "Chol", 
-    "Fbs", 
-    "RestEcg", 
-    "Thalac", 
-    "Exang", 
-    "OldPeak", 
-    "Slope", 
-    "Ca", 
-    "Thal"))
+// the rest of the code goes here...
+```
 
-    // step 3: set up a fast tree learner
-    .Append(context.BinaryClassification.Trainers.FastTree(
-        labelColumnName: "Label", 
-        featureColumnName: "Features"));
+These LINQ expressions set up four arrays containing the feature and label data for the training and testing partitions.  
+
+Now we need to tell CNTK what shape the input data has that we'll train the neural network on, and what shape the output data of the neural network will have: 
+
+```csharp
+// build features and labels
+var features = NetUtil.Var(new int[] { 7 }, DataType.Float);
+var labels = NetUtil.Var(new int[] { 1 }, DataType.Float);
+
+// the rest of the code goes here...
+```
+
+Note the first **Var** method which tells CNTK that our neural network will use a 1-dimensional tensor of 7 float values as input. This shape matches the 8 values returned by the **HeartData.GetFeatures** method. 
+
+And the second **Var** method tells CNTK that we want our neural network to output a single float value. This shape matches the single value returned by the **HeartData.GetLabel** method.
+
+Our next step is to design the neural network. 
+
+We will use a deep neural network with a 16-node input layer, a 128-node hidden layer, and a single-node output layer. We'll use the **ReLU** activation function for the input and hidden layers, and **Sigmoid** activation for the output layer. 
+
+Remember: the sigmoid function forces the output to a range of 0..1 which means we can treat it as a binary classification probability. So we can turn any regression network into a binary classification network by simply adding the Sigmoid activation function to the output layer.
+
+Here's how to build this neural network:
+
+```csharp
+// build the network
+var network = features
+    .Dense(16, CNTKLib.ReLU)
+    .Dense(128, CNTKLib.ReLU)
+    .Dense(1, CNTKLib.Sigmoid)
+    .ToNetwork();
+Console.WriteLine("Model architecture:");
+Console.WriteLine(network.ToSummary());
+
+// the rest of the code goes here...
+```
+
+Each **Dense** call adds a new dense feedforward layer to the network. We're stacking two layers, both using **ReLU** activation, and then add a final layer with a single node using **Sigmoid** activation.
+
+Then we use the **ToSummary** method to output a description of the architecture of the neural network to the console.
+
+Now we need to decide which loss function to use to train the neural network, and how we are going to track the prediction error of the network during each training epoch. 
+
+For this assignment we'll use **BinaryCrossEntropy** as the loss function because it's the standard metric for measuring binary classification loss. 
+
+We'll track the error with the **BinaryClassificationError** metric. This is the number of times (expressed as a percentage) that the model predictions are wrong. An error of 0 means the predictions are correct all the time, and an error of 1 means the predictions are wrong all the time. 
+
+```csharp
+// set up the loss function and the classification error function
+var lossFunc = CNTKLib.BinaryCrossEntropy(network.Output, labels);
+var errorFunc = NetUtil.BinaryClassificationError(network.Output, labels);
+
+// the rest of the code goes here...
+```
+
+Next we need to decide which algorithm to use to train the neural network. There are many possible algorithms derived from Gradient Descent that we can use here.
+
+For this assignment we're going to use the **AdamLearner**. You can learn more about the Adam algorithm here: [https://machinelearningmastery.com/adam...](https://machinelearningmastery.com/adam-optimization-algorithm-for-deep-learning/)
+
+```csharp
+// set up a learner
+var learner = network.GetAdamLearner(
+    learningRateSchedule: (0.001, 1),
+    momentumSchedule: (0.9, 1),
+    unitGain: true);
+
+// the rest of the code goes here...
+```
+
+These configuration values are a good starting point for many machine learning scenarios, but you can tweak them if you like to try and improve the quality of your predictions.
+
+We're almost ready to train. Our final step is to set up a trainer and an evaluator for calculating the loss and the error during each training epoch:
+
+```csharp
+// set up a trainer and an evaluator
+var trainer = network.GetTrainer(learner, lossFunc, errorFunc);
+var evaluator = network.GetEvaluator(errorFunc);
 
 // train the model
-Console.WriteLine("Training model...");
-var model = pipeline.Fit(partitions.TrainSet);
+Console.WriteLine("Epoch\tTrain\t\tTrain\tTest");
+Console.WriteLine("\tLoss\t\tError\tError");
+Console.WriteLine("--------------------------------------");
 
-// the rest of the code goes here....
+// the rest of the code goes here...
 ```
-Machine learning models in ML.NET are built with pipelines, which are sequences of data-loading, transformation, and learning components.
 
-This pipeline has the following components:
+The **GetTrainer** method sets up a trainer which will track the loss and the error for the training partition. And **GetEvaluator** will set up an evaluator that tracks the error in the test partition. 
 
-* A **CustomMapping** that transforms the numeric label to a boolean value. We define 0 values as healthy, and anything above 0 as an elevated risk.
-* **Concatenate** which combines all input data columns into a single column called 'Features'. This is a required step because ML.NET can only train on a single input column.
-* A **FastTree** classification learner which will train the model to make accurate predictions.
+Now we're finally ready to start training the neural network!
 
-The **FastTreeBinaryClassificationTrainer** is a very nice training algorithm that uses gradient boosting, a machine learning technique for classification problems.
-
-With the pipeline fully assembled, you can train the model with a call to **Fit**.
-
-You now have a fully- trained model. So now it's time to take the test partition, predict the diagnosis for each patient, and calculate the accuracy metrics of the model:
+Add the following code:
 
 ```csharp
-// make predictions for the test data set
-Console.WriteLine("Evaluating model...");
-var predictions = model.Transform(partitions.TestSet);
+var maxEpochs = 100;
+var batchSize = 1;
+var loss = new double[maxEpochs];
+var trainingError = new double[maxEpochs];
+var testingError = new double[maxEpochs];
+var batchCount = 0;
+for (int epoch = 0; epoch < maxEpochs; epoch++)
+{
+    // training and testing code goes here...
+}
 
-// compare the predictions with the ground truth
-var metrics = context.BinaryClassification.Evaluate(
-    data: predictions, 
-    labelColumnName: "Label", 
-    scoreColumnName: "Score");
-
-// report the results
-Console.WriteLine($"  Accuracy:          {metrics.Accuracy}");
-Console.WriteLine($"  Auc:               {metrics.AreaUnderRocCurve}");
-Console.WriteLine($"  Auprc:             {metrics.AreaUnderPrecisionRecallCurve}");
-Console.WriteLine($"  F1Score:           {metrics.F1Score}");
-Console.WriteLine($"  LogLoss:           {metrics.LogLoss}");
-Console.WriteLine($"  LogLossReduction:  {metrics.LogLossReduction}");
-Console.WriteLine($"  PositivePrecision: {metrics.PositivePrecision}");
-Console.WriteLine($"  PositiveRecall:    {metrics.PositiveRecall}");
-Console.WriteLine($"  NegativePrecision: {metrics.NegativePrecision}");
-Console.WriteLine($"  NegativeRecall:    {metrics.NegativeRecall}");
+// show final results
+var finalError = testingError[maxEpochs-1];
 Console.WriteLine();
+Console.WriteLine($"Final test error: {finalError:0.00}");
+Console.WriteLine($"Final test accuracy: {1 - finalError:0.00}");
 
-// the rest of the code goes here....
+// plotting code goes here...
 ```
 
-This code calls **Transform** to set up a diagnosis for every patient in the set, and **Evaluate** to compare these predictions to the ground truth and automatically calculate all evaluation metrics:
+We're training the network for 100 epochs using a batch size of 1. During training we'll track the loss and errors in the **loss**, **trainingError** and **testingError** arrays.
 
-* **Accuracy**: this is the number of correct predictions divided by the total number of predictions.
-* **AreaUnderRocCurve**: a metric that indicates how accurate the model is: 0 = the model is wrong all the time, 0.5 = the model produces random output, 1 = the model is correct all the time. An AUC of 0.8 or higher is considered good.
-* **AreaUnderPrecisionRecallCurve**: an alternate AUC metric that performs better for heavily imbalanced datasets with many more negative results than positive.
-* **F1Score**: this is a metric that strikes a balance between Precision and Recall. It’s useful for imbalanced datasets with many more negative results than positive.
-* **LogLoss**: this is a metric that expresses the size of the error in the predictions the model is making. A logloss of zero means every prediction is correct, and the loss value rises as the model makes more and more mistakes.
-* **LogLossReduction**: this metric is also called the Reduction in Information Gain (RIG). It expresses the probability that the model’s predictions are better than random chance.
-* **PositivePrecision**: also called ‘Precision’, this is the fraction of positive predictions that are correct. This is a good metric to use when the cost of a false positive prediction is high.
-* **PositiveRecall**: also called ‘Recall’, this is the fraction of positive predictions out of all positive cases. This is a good metric to use when the cost of a false negative is high.
-* **NegativePrecision**: this is the fraction of negative predictions that are correct.
-* **NegativeRecall**: this is the fraction of negative predictions out of all negative cases.
+A batch size of one means the neural network is trained on each individual record in the dataset. This produces the best possible prediction accuracy, but also takes the longest to train. But because the dataset for this assignment is so tiny, training with batches of one record is more than fast enough here.
 
-When monitoring heart disease, you definitely want to avoid false negatives because you don’t want to be sending high-risk patients home and telling them everything is okay.
+Once training is done, we show the final testing error on the console. This is the percentage of mistakes the network makes when predicting heart disease risk. 
 
-You also want to avoid false positives, but they are a lot better than a false negative because later tests would probably discover that the patient is healthy after all.
+Note that the error and the accuracy are related: accuracy = 1 - error. So we also report the final accuracy of the neural network. 
 
-To wrap up, You’re going to create a new patient record and ask the model to make a prediction:
+Here's the code to train the neural network:
 
 ```csharp
-// set up a prediction engine
-Console.WriteLine("Making a prediction for a sample patient...");
-var predictionEngine = context.Model.CreatePredictionEngine<HeartData, HeartPrediction>(model);
+// train one epoch on batches
+loss[epoch] = 0.0;
+trainingError[epoch] = 0.0;
+batchCount = 0;
+training_data.Index().Shuffle().Batch(batchSize, (indices, begin, end) =>
+{
+    // get the current batch
+    var featureBatch = features.GetBatch(training_data, indices, begin, end);
+    var labelBatch = labels.GetBatch(training_labels, indices, begin, end);
 
-// create a sample patient
-var heartData = new HeartData()
-{ 
-    Age = 36.0f,
-    Sex = 1.0f,
-    Cp = 4.0f,
-    TrestBps = 145.0f,
-    Chol = 210.0f,
-    Fbs = 0.0f,
-    RestEcg = 2.0f,
-    Thalac = 148.0f,
-    Exang = 1.0f,
-    OldPeak = 1.9f,
-    Slope = 2.0f,
-    Ca = 1.0f,
-    Thal = 7.0f,
-};
+    // train the network on the batch
+    var result = trainer.TrainBatch(
+        new[] {
+            (features, featureBatch),
+            (labels,  labelBatch)
+        },
+        false
+    );
+    loss[epoch] += result.Loss;
+    trainingError[epoch] += result.Evaluation;
+    batchCount++;
+});
 
-// make the prediction
-var prediction = predictionEngine.Predict(heartData);
+// show results
+loss[epoch] /= batchCount;
+trainingError[epoch] /= batchCount;
+Console.Write($"{epoch}\t{loss[epoch]:F3}\t{trainingError[epoch]:F3}\t");
 
-// report the results
-Console.WriteLine($"  Age: {heartData.Age} ");
-Console.WriteLine($"  Sex: {heartData.Sex} ");
-Console.WriteLine($"  Cp: {heartData.Cp} ");
-Console.WriteLine($"  TrestBps: {heartData.TrestBps} ");
-Console.WriteLine($"  Chol: {heartData.Chol} ");
-Console.WriteLine($"  Fbs: {heartData.Fbs} ");
-Console.WriteLine($"  RestEcg: {heartData.RestEcg} ");
-Console.WriteLine($"  Thalac: {heartData.Thalac} ");
-Console.WriteLine($"  Exang: {heartData.Exang} ");
-Console.WriteLine($"  OldPeak: {heartData.OldPeak} ");
-Console.WriteLine($"  Slope: {heartData.Slope} ");
-Console.WriteLine($"  Ca: {heartData.Ca} ");
-Console.WriteLine($"  Thal: {heartData.Thal} ");
-Console.WriteLine();
-Console.WriteLine($"Prediction: {(prediction.Prediction ? "Elevated heart disease risk" : "Normal heart disease risk" )} ");
-Console.WriteLine($"Probability: {prediction.Probability:P2} ");
+// testing code goes here...
 ```
 
-This code uses the **CreatePredictionEngine** method to set up a prediction engine. The two type arguments are the input data class and the class to hold the prediction. And once the prediction engine is set up, you can simply call **Predict** to make a single prediction.
+The **Index().Shuffle().Batch()** sequence randomizes the data and splits it up in a collection of 1-record batches. The second argument to **Batch()** is a function that will be called for every batch.
 
-The code creates a patient record for a 36-year old male with asymptomatic chest pain and a bunch of other medical info. What’s the model going to predict?
+Inside the batch function we call **GetBatch** twice to get a feature batch and a corresponding label batch. Then we call **TrainBatch** to train the neural network on these two batches of training data.
 
-Time to find out. Go to your terminal and run your code:
+The **TrainBatch** method returns the loss and error, but only for training on the 1-record batch. So we simply add up all these values and divide them by the number of batches in the dataset. That gives us the average loss and error for the predictions on the training partition during the current epoch, and we report this to the console.
+
+So now we know the training loss and error for one single training epoch. The next step is to test the network by making predictions about the data in the testing partition and calculate the testing error.
+
+Put this code inside the epoch loop and right below the training code:
+
+```csharp
+// test one epoch on batches
+testingError[epoch] = 0.0;
+batchCount = 0;
+testing_data.Batch(batchSize, (data, begin, end) =>
+{
+    // get the current batch for testing
+    var featureBatch = features.GetBatch(testing_data, begin, end);
+    var labelBatch = labels.GetBatch(testing_labels, begin, end);
+
+    // test the network on the batch
+    testingError[epoch] += evaluator.TestBatch(
+        new[] {
+            (features, featureBatch),
+            (labels,  labelBatch)
+        }
+    );
+    batchCount++;
+});
+testingError[epoch] /= batchCount;
+Console.WriteLine($"{testingError[epoch]:F3}");
+```
+
+We don't need to shuffle the data for testing, so now we can call **Batch** directly. Again we're calling **GetBatch** to get feature and label batches, but note that we're now providing the **testing_data** and **testing_labels** arrays. 
+
+We call **TestBatch** to test the neural network on the 1-record test batch. The method returns the error for the batch, and we again add up the errors for each batch and divide by the number of batches. 
+
+That gives us the average error in the neural network predictions on the test partition for this epoch. 
+
+After training completes, the training and testing errors for each epoch will be available in the **trainingError** and **testingError** arrays. Let's use XPlot to create a nice plot of the two error curves so we can check for overfitting:
+
+```csharp
+// plot the error graph
+var chart = Chart.Plot(
+    new [] 
+    {
+        new Graph.Scatter()
+        {
+            x = Enumerable.Range(0, maxEpochs).ToArray(),
+            y = trainingError,
+            name = "training",
+            mode = "lines+markers"
+        },
+        new Graph.Scatter()
+        {
+            x = Enumerable.Range(0, maxEpochs).ToArray(),
+            y = testingError,
+            name = "testing",
+            mode = "lines+markers"
+        }
+    }
+);
+chart.WithXTitle("Epoch");
+chart.WithYTitle("Classification error");
+chart.WithTitle("Heart Disease Training");
+
+// save chart
+File.WriteAllText("chart.html", chart.GetHtml());
+```
+
+This code creates a **Plot** with two **Scatter** graphs. The first one plots the **trainingError** values and the second one plots the **testingError** values. 
+
+Finally we use **File.WriteAllText** to write the plot to disk as a HTML file.
+
+We're now ready to build the app, so this is a good moment to save your work ;) 
+
+Go to the CNTKUtil folder and type the following:
+
+```bash
+$ dotnet build -o bin/Debug/netcoreapp3.0 -p:Platform=x64
+```
+
+This will build the CNKTUtil project. Note how we're specifying the x64 platform because the CNTK library requires a 64-bit build. 
+
+Now go to the HeartDisease folder and type:
+
+```bash
+$ dotnet build -o bin/Debug/netcoreapp3.0 -p:Platform=x64
+```
+
+This will build your app. Note how we're again specifying the x64 platform.
+
+Now run the app:
 
 ```bash
 $ dotnet run
 ```
 
-What results do you get? What is your accuracy, precision, recall, AUC, AUCPRC, and F1 value?
+The app will create the neural network, load the dataset, train the network on the data, and create a plot of the training and testing errors for each epoch. 
 
-Is this dataset balanced? Which metrics should you use to evaluate your model? And what do the values say about the accuracy of your model? 
+The plot is written to disk in a new file called chart.html. Open the file now and take a look at the training and testing curves.
 
-And what about our patient? What did your model predict?
+What are your final classification errors on training and testing? What is the final testing accuracy? And what do the curves look like? Is the neural network overfitting?
 
-Think about the code in this assignment. How could you improve the accuracy of the model? What are your best AUC and AUCPRC values? 
+Do you think this model is good at predicting heart disease?
 
-Share your results in our group!
+Try to improve the neural network by changing the network architecture. You can add more nodes or extra layers. You can also changing the number of epochs, the batch size, or the learner parameters. Or you can try to train on different patient attributes.
+
+Did the changes help? What is the best accuracy you can achieve?
+
+You may notice that sometimes the neural network stalls and won't train at all, and all loss and error values are constant during training. This happens when the dataset is too complex to train on. The gradient descent learner cannot find any workable solution at all, and so during each training epoch the neural network hardly changes.
+
+When stalling  happens, you need to simplify your model. Remove some input attributes, reduce the number of nodes in a layer, or remove a layer. Keep simplifying until your network starts training again.
+
+Did you see your network stalling? When did this happen? How did you fix it?
+
+Post your results in our support group.
