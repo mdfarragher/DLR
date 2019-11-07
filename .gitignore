@@ -2,7 +2,6 @@
 **/.vs
 **/bin
 **/obj
-LoadingData/CaliforniaHousing/data.png
-Regression/HousePricePrediction/chart.html
+chart.html
 MulticlassClassification/DigitRecognition/mnist_train.csv
 MulticlassClassification/DigitRecognition/mnist_test.csv
