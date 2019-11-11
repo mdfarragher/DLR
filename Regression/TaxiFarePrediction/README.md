@@ -4,7 +4,7 @@ In this assignment you're going to build an app that can predict taxi fares in N
 
 The first thing you'll need is a data file with transcripts of New York taxi rides. The [NYC Taxi & Limousine Commission](https://www1.nyc.gov/site/tlc/about/tlc-trip-record-data.page) provides yearly TLC Trip Record Data files which have exactly what you need.
 
-Download the [Yellow Taxi Trip Records from December 2018](#) and save the file as **yellow_tripdata_2018-12_small.csv**. 
+Download the [Yellow Taxi Trip Records from December 2018](https://github.com/mdfarragher/DLR/blob/master/Regression/TaxiFarePrediction/yellow_tripdata_2018-12_small.csv) and save the file as **yellow_tripdata_2018-12_small.csv**. 
 
 This is a CSV file with 999 records that looks like this:
 ￼
