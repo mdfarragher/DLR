@@ -10,7 +10,7 @@ In this assignment you are going to build this same app, which must be able to i
 
 The easiest way to do this is to build a convolutional neural network and train it on a dataset of hotdog and not-hotdog images. The [Kaggle Hotdog dataset](https://www.kaggle.com/dansbecker/hot-dog-not-hot-dog/data) has exactly what we need.
 
-You can [download the dataset here](#). Unzip the archive and make sure the **hotdog** and **nothotdog** folders are created in the project folder you're going to create below.
+You can [download the dataset here](https://www.dropbox.com/s/jv05tee18d7p6nm/nothotdog.zip?dl=1). Unzip the archive and make sure the **hotdog** and **nothotdog** folders are created in the project folder you're going to create below.
 
 Here's what the dataset looks like:
 
@@ -127,7 +127,7 @@ static void CreateMappingFiles()
 }
 ```
 
-This method uses **Directory.GetFiles** to collect all image files in the dataset and then uses nested loops to write the images to **train_map.txt** and **test_map.txt** files. These files contain all the images for training and testing the neural network. 
+This method uses **Directory.GetFiles** to collect all image files in the dataset and then uses nested loops to write the file names to **train_map.txt** and **test_map.txt** files. These files contain all  image file names for training and testing the neural network. 
 
 You can experiment with the sizes of the training and testing partitions by changing the values of the **trainingSetSize** and **testingSetSize** constants. Just make sure they both add up to 499. 
 
