@@ -2,7 +2,9 @@
 
 In the TV show Silicon Valley, there's a famous scene where the developer Jian-Yang demonstrates an app that can identify any kind of food in an image. Of course this being Silicon Valley, there's a catch: the app can only identify hotdogs and classifies everything else as 'not hotdog':
 
-<iframe width="560" height="315" src="https://www.youtube.com/embed/pqTntG1RXSY" frameborder="0" allow="accelerometer; autoplay; encrypted-media; gyroscope; picture-in-picture" allowfullscreen></iframe>
+![Hotdog app](./assets/seefood.jpg)
+
+You can watch the full video here: [https://www.youtube.com/watch?v=pqTntG1RXSY](https://www.youtube.com/watch?v=pqTntG1RXSY&feature=youtu.be)
 
 In this assignment you are going to build this same app, which must be able to identify hotdogs in any image. 
 
