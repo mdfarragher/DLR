@@ -4,7 +4,7 @@ In this assignment you are going to build an app which must be able to identify 
 
 The easiest way to do this is to build a convolutional neural network and train it on a dataset of cat and dog images. The **Kaggle cats and dogs** dataset has exactly what we need.
 
-You can [download the dataset here](#). Unzip the archive and make sure the **cat** and **dog** folders are created in the project folder you're going to create below.
+You can [download the dataset here](https://www.dropbox.com/s/dnhezyz3g6i8s88/catsanddogs2.zip?dl=1). Unzip the archive and make sure the **cat** and **dog** folders are created in the project folder you're going to create below.
 
 Here's what the dataset looks like:
 
