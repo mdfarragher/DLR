@@ -65,7 +65,7 @@ namespace MovieSentiment
                     outputColumnName: "Features", 
                     inputColumnName: nameof(ReviewData.Review),
                     ngramLength: 1,
-                    maximumNgramsCount: 2000);
+                    maximumNgramsCount: 5000);
 
             // create a model
             var model = pipeline.Fit(partitions.TrainSet);
@@ -88,7 +88,7 @@ namespace MovieSentiment
             var inputWidth = training_data.First().Length;
 
             // build features and labels
-            var features = NetUtil.Var(new int[] { 2000 }, DataType.Float);
+            var features = NetUtil.Var(new int[] { 5000 }, DataType.Float);
             var labels = NetUtil.Var(new int[] { 1 }, DataType.Float);
 
             // build the network
@@ -125,7 +125,7 @@ namespace MovieSentiment
             Console.WriteLine("-----------------------------");
             
             var maxEpochs = 10;
-            var batchSize = 32;
+            var batchSize = 16;
             var loss = new double[maxEpochs];
             var trainingError = new double[maxEpochs];
             var testingError = new double[maxEpochs];
