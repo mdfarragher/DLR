@@ -6,18 +6,15 @@ The first thing you'll need is a dataset with thousands of movie reviews, correc
 
 Your job is to build an app that reads the dataset and correctly predicts the sentiment for each review. 
 
-You can download the [IMDB Movie Dataset](https://www.kaggle.com/lakshmi25npathi/imdb-dataset-of-50k-movie-reviews) here. Create a Kaggle account if you do not have one yet, then download the ZIP file and extract the **IMDB Dataset.csv** file.
+Download the [IMDB Movie Dataset](https://github.com/mdfarragher/DLR/blob/master/BinaryClassification/LstmDemo/imdb_data.zip?raw=true) and save the ZIP file in the project folder that you're going to create in a few minutes. You don't have to unzip the file, your app will do that automatically.
 
-The data file looks like this:
+The movie reviews look like this:
 
 ![IMDB Movie Dataset](./assets/dataset.jpg)
 
-It’s a CSV file with only 2 columns of information:
+You may have noticed that the datafiles in the zip archive are not text files but binary files, this is because the movie reviews have already been preprocessed. Each word in the reviews has been converted to an index number in a dictionary, and the words have been sorted in reverse order and padded with zeroes so each review is exactly 500 numbers long. 
 
-* Review: the full text of the movie review.
-* Sentiment: ‘positive' for a positive movie review and ‘negative’ for a negative movie review.
-
-This dataset contains 25,000 positive movie reviews and 25,000 negative movie reviews. You will build a binary classification network that reads in all reviews and then makes a prediction for each review if it is positive or negative.
+You will build a 1-dimensional convolutional network that reads in these 500-word sequences and then makes a prediction for each review if it is positive or negative.
 
 Let’s get started. You need to build a new application from scratch by opening a terminal and creating a new NET Core console project:
 
@@ -31,13 +28,12 @@ Also make sure to copy the dataset file **IMDB Dataset.csv** into this folder be
 Now install the following packages
 
 ```bash
-$ dotnet add package Microsoft.ML
 $ dotnet add package CNTK.GPU
 $ dotnet add package XPlot.Plotly
 $ dotnet add package Fsharp.Core
 ```
 
-**Microsoft.ML** is the Microsoft machine learning package. We will use to load and process the data from the dataset. The **CNTK.GPU** library is Microsoft's Cognitive Toolkit that can train and run deep neural networks. And **Xplot.Plotly** is an awesome plotting library based on Plotly. The library is designed for F# so we also need to pull in the **Fsharp.Core** library. 
+The **CNTK.GPU** library is Microsoft's Cognitive Toolkit that can train and run deep neural networks. And **Xplot.Plotly** is an awesome plotting library based on Plotly. The library is designed for F# so we also need to pull in the **Fsharp.Core** library. 
 
 The **CNTK.GPU** package will train and run deep neural networks using your GPU. You'll need an NVidia GPU and Cuda graphics drivers for this to work. 
 
@@ -58,9 +54,8 @@ Now you are ready to start writing code. Edit the Program.cs file with Visual St
 ```csharp
 using System;
 using System.IO;
+using System.IO.Compression;
 using System.Linq;
-using Microsoft.ML;
-using Microsoft.ML.Data;
 using CNTK;
 using CNTKUtil;
 using XPlot.Plotly;
@@ -68,155 +63,60 @@ using XPlot.Plotly;
 namespace MovieSentiment
 {
     /// <summary>
-    /// The ReviewData class contains one single movie review which may be positive or negative.
+    /// The main program class.
     /// </summary>
-    public class ReviewData
+    public class Program
     {
-        [LoadColumn(0)] public string Review { get; set; }
-        [LoadColumn(1)] public string Label { get; set; }
-    }
+        // filenames for data set
+        private static string dataPath = Path.Combine(Environment.CurrentDirectory, "IMDB Dataset.csv");
 
-    // the rest of the code goes here...
-}
-```
+        /// <summary>
+        /// The main program entry point.
+        /// </summary>
+        /// <param name="args">The command line parameters.</param>
+        static void Main(string[] args)
+        {
+            // check the compute device
+            Console.WriteLine("Checking compute device...");
+            Console.WriteLine($"  Using: {NetUtil.CurrentDevice.AsString()}");
 
-The **ReviewData** class holds all the data for one single movie review. Note how each field is tagged with a **LoadColumn** attribute that will tell the CSV data loading code from which column to import the data.
+            // unpack archive
+            if (!File.Exists("x_train_imdb.bin"))
+            {
+                ZipFile.ExtractToDirectory("imdb_data.zip", ".");
+            }
 
-Unfortunately we can't train a deep neural network on text data directly. We first need to convert the data to numbers, for example with sparse vector encoding.
+            // load training and test data
+            Console.WriteLine("Loading data files...");
+            var sequenceLength = 500;
+            var training_data = DataUtil.LoadBinary<float>("x_train_imdb.bin", 25000, sequenceLength);
+            var training_labels = DataUtil.LoadBinary<float>("y_train_imdb.bin", 25000);
+            var testing_data = DataUtil.LoadBinary<float>("x_test_imdb.bin", 25000, sequenceLength);
+            var testing_labels = DataUtil.LoadBinary<float>("y_test_imdb.bin", 25000);
 
-We'll get to that conversion later. For now we'll add a class here that will contain the converted text:
-
-```csharp
-/// <summary>
-/// The ProcessedData class contains one single movie review which has been processed.
-/// </summary>
-public class ProcessedData
-{
-    public string Label { get; set; }
-    public VBuffer<float> Features { get; set; }
-
-    public float[] GetFeatures() => Features.DenseValues().ToArray();
-
-    public float GetLabel() => Label == "positive" ? 1.0f : 0.0f;
-}
-
-// the rest of the code goes here...
-```
-
-There's the **Label** again, but notice how the review has now been converted to a **VBuffer<float>** and stored in the **Features** field. 
-
-The **VBuffer** type is a sparse vector. It's going to store the sparse vector-encoded review text so we can train a neural network on it. The nice thing about this NET type is that it only stores the ones. The zeroes are not stored and do not occupy any space in memory. 
-
-The **GetFeatures** method calls **DenseValues** to return the complete sparse vector and returns it as a **float[]** that our neural network understands. 
-
-And there's a **GetLabel** method that returns 1 if the movie review is positive (indicated by the Label field containing the word 'positive') and 0 if the review is negative.
-
-The features represent the sparse vector-encoded text that we will use to train the neural network on, and the label is the output variable that we're trying to predict. So here we're training on encoded text to predict if that text is positive or negative.
-
-Now it's time to start writing the main program method:
-
-```csharp
-/// <summary>
-/// The main program class.
-/// </summary>
-public class Program
-{
-    // filenames for data set
-    private static string dataPath = Path.Combine(Environment.CurrentDirectory, "IMDB Dataset.csv");
-
-    /// <summary>
-    /// The main program entry point.
-    /// </summary>
-    /// <param name="args">The command line parameters.</param>
-    static void Main(string[] args)
-    {
-        // set up a machine learning context
-        var context = new MLContext();
-
-        // load the dataset in memory
-        Console.WriteLine("Loading data...");
-        var data = context.Data.LoadFromTextFile<ReviewData>(
-            path: dataPath, 
-            hasHeader: true, 
-            separatorChar: ',',
-            allowQuoting: true);
-
-        // use 80% for training and 20% for testing
-        var partitions = context.Data.TrainTestSplit(data, testFraction: 0.2);
-
-        // the rest of the code goes here...
+            // the rest of the code goes here...
+        }
     }
 }
 ```
 
-When working with the ML.NET library we always need to set up a machine learning context represented by the **MLContext** class.
+The code first checks the active compute device in **NetUtil.CurrentDevice** and writes it to the console so you can make sure that CNTK is using your GPU. Then the code calls **File.Exists** and **ZipFile.ExtractToDirectory** to extract the dataset files from the zipfile if that hasn't been done yet. Then we call **DataUtil.LoadBinary** to load to load the training and testing data in memory. Note the **sequenceLength** variable that indicates that we're working with movie reviews that have been padded to a length of 500 words.
 
-The code calls the **LoadFromTextFile** method to load the CSV data in memory. Note the **ReviewData** type argument that tells the method which class to use to load the data.
-
-We then use **TrainTestSplit** to split the data in a training partition containing 80% of the data and a testing partition containing 20% of the data.
-
-Now it's time to build a pipeline to convert the text to sparse vector-encoded data. We'll use the **ProduceWordBags** component in the ML.NET machine learning library:
-
-```csharp
-// set up a pipeline to featurize the text
-Console.WriteLine("Featurizing text...");
-var pipeline = context.Transforms.Text.ProduceWordBags(
-        outputColumnName: "Features", 
-        inputColumnName: nameof(ReviewData.Review),
-        ngramLength: 1,
-        maximumNgramsCount: 5000);
-
-// create a model
-var model = pipeline.Fit(partitions.TrainSet);
-
-// create training and testing datasets 
-var trainingData = model.Transform(partitions.TrainSet);
-var testingData = model.Transform(partitions.TestSet);
-
-// create training and testing enumerations
-var training = context.Data.CreateEnumerable<ProcessedData>(trainingData, reuseRowObject: false).ToArray();
-var testing = context.Data.CreateEnumerable<ProcessedData>(testingData, reuseRowObject: false).ToArray();
-
-// the rest of the code goes here...
-```
-
-Machine learning pipelines in ML.NET are built by stacking transformation components. Here we're using a single component, **ProduceWordBags**, that converts the text messages in **ReviewData.Review** into sparse vector-encoded bag of words in a new column called 'Features'.
-
-Note that I'm specifying an Ngram length of one which means that I want to look at individual words, not combinations of words. And I am specifying a maximum Ngram count of 5000 which means every movie review will be converted to a sparse vector of 5000 elements. 
-
-We call the **Fit** method to initialize the pipeline, and then call **Transform** twice to transform the text in the training and testing partitions. 
-
-Finally we call **CreateEnumerable** to convert the training and testing data to an enumeration of **ProcessedData** instances. So now we have the training data in **training** and the testing data in **testing**. Both are enumerations of **ProcessedData** instances.
-
-But CNTK can't train on an enumeration of class instances. It requires a **float[][]** for features and **float[]** for labels.
-
-So we need to set up four float arrays:
-
-```csharp
-// set up data arrays
-var training_data = training.Select(v => v.GetFeatures()).ToArray();
-var training_labels = training.Select(v => v.GetLabel()).ToArray();
-var testing_data = testing.Select(v => v.GetFeatures()).ToArray();
-var testing_labels = testing.Select(v => v.GetLabel()).ToArray();
-
-// the rest of the code goes here...
-```
-
-These LINQ expressions set up four arrays containing the feature and label data for the training and testing partitions.  
+We now have 25,000 movie reviews ready for training and 25,000 movie reviews ready for testing. Each review has been encoded with each word converted into a numerical dictionary index, and the reviews have been padded with zeroes so that they're all 500 floats long.
 
 Now we need to tell CNTK what shape the input data has that we'll train the neural network on, and what shape the output data of the neural network will have: 
 
 ```csharp
 // build features and labels
-var features = NetUtil.Var(new int[] { 5000 }, DataType.Float);
+var features = NetUtil.Var(new int[] { sequenceLength }, DataType.Float);
 var labels = NetUtil.Var(new int[] { 1 }, DataType.Float);
 
 // the rest of the code goes here...
 ```
 
-Remember the pipeline higher up in the code? It converts every movie review into a sparse vector (a bag of words) with a length of 5000 elements. So the first **Var** method tells CNTK that our neural network will use a 1-dimensional tensor of 5000 float values as input. This shape matches the array returned by the **ProcessedData.GetFeatures** method. 
+The input to the neural network is the entire 500-word sequence of a movie review. So the first **Var** method tells CNTK that our neural network will use a 1-dimensional tensor of **sequenceLength** float values as input. 
 
-And the second **Var** method tells CNTK that we want our neural network to output a single float value. This shape matches the single value returned by the **ProcessedData.GetLabel** method.
+And the second **Var** method tells CNTK that we want our neural network to output a single float value which is the probability that the movie review is positive.  
 
 Our next step is to design the neural network. We're going to build the following network:
 

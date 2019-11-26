@@ -1,36 +1,13 @@
 ﻿using System;
 using System.IO;
+using System.IO.Compression;
 using System.Linq;
-using Microsoft.ML;
-using Microsoft.ML.Data;
 using CNTK;
 using CNTKUtil;
 using XPlot.Plotly;
 
 namespace MovieSentiment
 {
-    /// <summary>
-    /// The ReviewData class contains one single movie review which may be positive or negative.
-    /// </summary>
-    public class ReviewData
-    {
-        [LoadColumn(0)] public string Review { get; set; }
-        [LoadColumn(1)] public string Label { get; set; }
-    }
-
-    /// <summary>
-    /// The ProcessedData class contains one single movie review which has been processed.
-    /// </summary>
-    public class ProcessedData
-    {
-        public string Label { get; set; }
-        public VBuffer<float> Features { get; set; }
-
-        public float[] GetFeatures() => Features.DenseValues().ToArray();
-
-        public float GetLabel() => Label == "positive" ? 1.0f : 0.0f;
-    }
-
     /// <summary>
     /// The main program class.
     /// </summary>
@@ -45,50 +22,29 @@ namespace MovieSentiment
         /// <param name="args">The command line parameters.</param>
         static void Main(string[] args)
         {
-            // set up a machine learning context
-            var context = new MLContext();
+            // check the compute device
+            Console.WriteLine("Checking compute device...");
+            Console.WriteLine($"  Using: {NetUtil.CurrentDevice.AsString()}");
 
-            // load the dataset in memory
-            Console.WriteLine("Loading data...");
-            var data = context.Data.LoadFromTextFile<ReviewData>(
-                path: dataPath, 
-                hasHeader: true, 
-                separatorChar: ',',
-                allowQuoting: true);
+            // unpack archive
+            Console.WriteLine("Unpacking archive...");
+            if (!File.Exists("x_train_imdb.bin"))
+            {
+                ZipFile.ExtractToDirectory("imdb_data.zip", ".");
+            }
 
-            // use 80% for training and 20% for testing
-            var partitions = context.Data.TrainTestSplit(data, testFraction: 0.2);
-
-            // set up a pipeline to featurize the text
-            Console.WriteLine("Featurizing text...");
-            var pipeline = context.Transforms.Text.ProduceWordBags(
-                    outputColumnName: "Features", 
-                    inputColumnName: nameof(ReviewData.Review),
-                    ngramLength: 1,
-                    maximumNgramsCount: 5000);
-
-            // create a model
-            var model = pipeline.Fit(partitions.TrainSet);
-
-            // create training and testing datasets 
-            var trainingData = model.Transform(partitions.TrainSet);
-            var testingData = model.Transform(partitions.TestSet);
-
-            // create training and testing enumerations
-            var training = context.Data.CreateEnumerable<ProcessedData>(trainingData, reuseRowObject: false).ToArray();
-            var testing = context.Data.CreateEnumerable<ProcessedData>(testingData, reuseRowObject: false).ToArray();
-
-            // set up data arrays
-            var training_data = training.Select(v => v.GetFeatures()).ToArray();
-            var training_labels = training.Select(v => v.GetLabel()).ToArray();
-            var testing_data = testing.Select(v => v.GetFeatures()).ToArray();
-            var testing_labels = testing.Select(v => v.GetLabel()).ToArray();
-
-            // calculate width of word vector
-            var inputWidth = training_data.First().Length;
+            // load training and test data
+            Console.WriteLine("Loading data files...");
+            var sequenceLength = 500;
+            var training_data = DataUtil.LoadBinary<float>("x_train_imdb.bin", 25000, sequenceLength);
+            var training_labels = DataUtil.LoadBinary<float>("y_train_imdb.bin", 25000);
+            var testing_data = DataUtil.LoadBinary<float>("x_test_imdb.bin", 25000, sequenceLength);
+            var testing_labels = DataUtil.LoadBinary<float>("y_test_imdb.bin", 25000);
+            Console.WriteLine($"  Records for training: {training_data.Length}");
+            Console.WriteLine($"  Records for testing:  {testing_data.Length}");
 
             // build features and labels
-            var features = NetUtil.Var(new int[] { 5000 }, DataType.Float);
+            var features = NetUtil.Var(new int[] { sequenceLength }, DataType.Float);
             var labels = NetUtil.Var(new int[] { 1 }, DataType.Float);
 
             // build the network
