@@ -25,7 +25,7 @@ namespace LstmDemo
         {
             // check the compute device
             Console.WriteLine("Checking compute device...");
-            //Console.WriteLine($"  Using: {NetUtil.CurrentDevice.AsString()}");
+            Console.WriteLine($"  Using: {NetUtil.CurrentDevice.AsString()}");
 
             // unpack archive
             Console.WriteLine("Unpacking archive...");
