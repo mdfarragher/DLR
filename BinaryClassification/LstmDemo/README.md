@@ -6,7 +6,7 @@ How will the LSTM do? Will it perform better than the 1-dimensional convolutiona
 
 Let's find out!
 
-Download the [IMDB Movie Dataset](#) and save the ZIP file in the project folder that you're going to create in a few minutes.
+Download the [IMDB Movie Dataset](https://github.com/mdfarragher/DLR/blob/master/BinaryClassification/LstmDemo/imdb_data.zip?raw=true) and save the ZIP file in the project folder that you're going to create in a few minutes.
 
 The dataset contains 25,000 positive movie reviews and 25,000 negative movie reviews. The reviews look like this:
 
