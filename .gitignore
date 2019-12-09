@@ -24,3 +24,4 @@ BinaryClassification/MovieSentiment/y_test_imdb.bin
 BinaryClassification/MovieSentiment/x_train_imdb.bin
 BinaryClassification/MovieSentiment/x_test_imdb.bin
 BinaryClassification/MovieSentiment/imdb_data.zip
+Misc/StyleTransferDemo/models/
