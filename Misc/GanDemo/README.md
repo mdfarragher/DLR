@@ -12,7 +12,7 @@ You're going to use the famous [CIFAR-10 dataset](https://en.wikipedia.org/wiki/
 
 ![Cifar-10 dataset](./assets/cifar10.png)
 
-You'll use a subset of the dataset that contains 5,000 images of frog species. You can [download the image subset here](#). Save the file as **frog_pictures.zip** and place it in the project folder you're about to create below. 
+You'll use a subset of the dataset that contains 5,000 images of frog species. You can [download the image subset here](https://github.com/mdfarragher/DLR/raw/master/Misc/GanDemo/frog_pictures.zip). Save the file as **frog_pictures.zip** and place it in the project folder you're about to create below. 
 
 Your challenge is to build an app that uses a GAN to generate better and better images of hypothetical frogs, until the images are so good that they look exactly like real frogs.
 
