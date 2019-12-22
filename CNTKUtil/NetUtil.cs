@@ -480,6 +480,20 @@ namespace CNTKUtil
         }
 
         /// <summary>
+        /// The accuracy function for binary classifiers.
+        /// </summary>
+        /// <param name="prediction">The prediction variable</param>
+        /// <param name="labels">The label variable</param>
+        /// <returns></returns>
+        public static CNTK.Function BinaryAccuracy(CNTK.Variable prediction, CNTK.Variable labels)
+        {
+            var round_predictions = CNTK.CNTKLib.Round(prediction);
+            var equal_elements = CNTK.CNTKLib.Equal(round_predictions, labels);
+            var result = CNTK.CNTKLib.ReduceMean(equal_elements, CNTK.Axis.AllStaticAxes());
+            return result;
+        }
+
+        /// <summary>
         /// The mean squared error loss function for linear models.
         /// </summary>
         /// <param name="prediction">The prediction variable</param>
