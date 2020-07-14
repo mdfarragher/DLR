@@ -286,11 +286,11 @@ We're training the GAN for 100,000 epochs using a batch size of 8 images.
 
 Training a GAN is a 5-step process:
 
-1. Run the discriminator to get a list of fake images
+1. Run the generator to get a list of fake images
 2. Combine real and fake images into a training batch
 3. Train the discriminator on this batch
 4. Combine real and fake images into a misleading batch where every image has been incorrectly labelled
-5. Train the GAN on the misleading batch to help the generator create better fakes
+5. Train the GAN on the misleading batch to help the generator create better fakes to fool the discriminator
 
 Let's start with training the discriminator:
 
