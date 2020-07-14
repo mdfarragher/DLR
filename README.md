@@ -1,6 +1,6 @@
 # Deep Learning with C# and CNTK
 
-![Deep Learning with C# and CNTK](./assets/DLR.jpg)
+![Deep Learning with C# and CNTK](./assets/DLR-medium.jpg)
 
 This repository contains all course assignments of my **Deep Learning with C# and CNTK** course and will get you up to speed with Microsoft's amazing Cognitive Toolkit machine learning library.
 
